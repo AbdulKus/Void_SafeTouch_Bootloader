@@ -9,7 +9,7 @@ class SafeTouchCredential;
 class SafeTouchProvider final : public ICredentialProvider {
 public:
     SafeTouchProvider();
-    ~SafeTouchProvider() override;
+    ~SafeTouchProvider();
     IFACEMETHODIMP QueryInterface(REFIID riid, void** value) override;
     IFACEMETHODIMP_(ULONG) AddRef() override;
     IFACEMETHODIMP_(ULONG) Release() override;

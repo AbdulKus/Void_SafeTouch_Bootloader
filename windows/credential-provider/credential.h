@@ -11,11 +11,11 @@ class SafeTouchProvider;
 class SafeTouchCredential final : public ICredentialProviderCredential2 {
 public:
     explicit SafeTouchCredential(SafeTouchProvider* provider);
-    ~SafeTouchCredential() override;
+    ~SafeTouchCredential();
     IFACEMETHODIMP QueryInterface(REFIID riid,void** value) override;
     IFACEMETHODIMP_(ULONG) AddRef() override;
     IFACEMETHODIMP_(ULONG) Release() override;
-    IFACEMETHODIMP Advise(ICredentialProviderCredentialEvents* events,UINT_PTR context) override;
+    IFACEMETHODIMP Advise(ICredentialProviderCredentialEvents* events) override;
     IFACEMETHODIMP UnAdvise() override;
     IFACEMETHODIMP SetSelected(BOOL* autoLogon) override;
     IFACEMETHODIMP SetDeselected() override;
@@ -46,7 +46,6 @@ private:
     std::wstring status_{L"Insert card"};
     std::mutex mutex_;
     ICredentialProviderCredentialEvents* events_{};
-    UINT_PTR adviseContext_{};
     std::thread worker_;
     std::atomic_bool stop_{false},running_{false},ready_{false};
     safetouch::Key32 wrapKey_{};
