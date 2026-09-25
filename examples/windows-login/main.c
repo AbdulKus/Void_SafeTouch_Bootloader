@@ -32,7 +32,8 @@
 #define CFG_NAME 78u
 #define CFG_CRC 124u
 
-static uint8_t config_page[PAGE_SIZE];
+/* The EFC page buffer must be populated with aligned 32-bit writes. */
+static uint8_t config_page[PAGE_SIZE] __attribute__((aligned(4)));
 static uint8_t pending_secret[32],pending_name[16],nonce[32],current_card[16];
 static uint8_t auth_proof[16],wrap_key[32];
 static unsigned current_card_source;

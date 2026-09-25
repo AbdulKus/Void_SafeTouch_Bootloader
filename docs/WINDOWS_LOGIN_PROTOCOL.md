@@ -54,4 +54,6 @@ All unused bytes are zero.
 | `20 AUTH_BEGIN` | nonce `[4..35]` | result and state |
 
 The card identifier is deliberately not treated as secret. If EMV identification
-is unavailable, setup rejects the ATR-only fallback unless the operator opts in.
+is unavailable, setup accepts the ATR-only fallback by default so any readable
+ISO 7816 card can be enrolled. The operator can require an EMV-derived identity
+with `--require-emv`.

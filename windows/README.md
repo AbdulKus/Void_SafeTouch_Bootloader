@@ -44,9 +44,10 @@ Then install and enroll:
 ```
 
 For an already enrolled device, hold **both** SafeTouch buttons while starting
-the enrollment command. By default setup refuses cards for which the firmware
-could obtain only an ATR-derived fingerprint because ATR values are commonly
-shared by many cards. `--allow-atr` enables that explicitly weaker fallback.
+the enrollment command. Setup accepts cards for which the firmware can obtain
+only an ATR-derived fingerprint, so every readable ISO 7816 card can be
+enrolled. ATR values are commonly shared by many cards; use `--require-emv` to
+require a card-specific EMV identifier instead.
 
 After setup, lock the workstation with `Win+L` and choose the **SafeTouch**
 tile. The status changes through `Insert card`, `Reading card...`, `Press GREEN
@@ -86,4 +87,6 @@ not a card-held secret.
 
 The current card transport implements ISO7816 T=0. Cards that expose only T=1,
 or whose stable application identifier cannot be read without additional
-authentication, fall back to ATR and are rejected unless `--allow-atr` is used.
+authentication, fall back to ATR and are accepted by default. Such cards can
+share the same fingerprint; use `--require-emv` when strict card-specific
+binding is required.
