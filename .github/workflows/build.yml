@@ -1,0 +1,30 @@
+name: Сборка прошивки
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: AT91SAM7S64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получение исходников
+        uses: actions/checkout@v4
+
+      - name: Установка ARM GNU Toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      - name: Сборка загрузчика и примера
+        run: chmod +x build.sh && ./build.sh
+
+      - name: Публикация готовых образов
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-safetouch-firmware
+          path: |
+            void_recovery.bin
+            void_bootloader.vbi
+            examples/menu/menu.vbi
+

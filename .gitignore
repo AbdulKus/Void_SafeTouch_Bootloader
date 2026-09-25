@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.elf
+*.map
+*.body.bin
+void_bootloader_probe.bin
+void_bootloader_flash_probe.bin
+void_bootloader_probe.*
+void_bootloader_flash_probe.*
+examples/menu/menu.bin
+examples/menu/menu.elf
+examples/menu/menu.map
+build_probe.ps1
+build_flash_probe.ps1
+ram.ld
+flash_probe.ld
+
