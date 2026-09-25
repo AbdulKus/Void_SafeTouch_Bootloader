@@ -35,12 +35,13 @@ set_property(TARGET SafeTouchCredentialProvider PROPERTY MSVC_RUNTIME_LIBRARY "M
 # Produce one self-contained GUI installer. The provider DLL is built first and
 # embedded as RCDATA; SafeTouchSetup extracts and registers it when launched.
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/embedded_provider_$<CONFIG>.rc"
-  CONTENT "1 24 \"${CMAKE_CURRENT_SOURCE_DIR}/setup/setup.manifest\"\n101 RCDATA \"$<TARGET_FILE:SafeTouchCredentialProvider>\"\n")
+  CONTENT "101 RCDATA \"$<TARGET_FILE:SafeTouchCredentialProvider>\"\n")
 add_executable(SafeTouchSetup WIN32
   setup/main.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/embedded_provider_$<CONFIG>.rc")
 add_dependencies(SafeTouchSetup SafeTouchCredentialProvider)
 target_link_libraries(SafeTouchSetup PRIVATE safetouch_common netapi32 userenv comctl32 dwmapi uxtheme)
+target_link_options(SafeTouchSetup PRIVATE "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'")
 set_property(TARGET SafeTouchSetup PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 install(TARGETS SafeTouchSetup SafeTouchCredentialProvider
