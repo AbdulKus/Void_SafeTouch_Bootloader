@@ -22,6 +22,7 @@ struct CredentialRecord {
 };
 
 std::filesystem::path DefaultCredentialsPath();
+std::filesystem::path LegacyCredentialsPath();
 bool SaveCredentialRecord(const std::filesystem::path& path, CredentialRecord& record,
                           const Key32& authKey, const Key32& wrapKey,
                           std::span<const wchar_t> password, std::wstring& error);

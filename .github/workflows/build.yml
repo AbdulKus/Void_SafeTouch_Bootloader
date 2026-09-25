@@ -22,7 +22,7 @@ jobs:
       - name: Публикация готовых образов
         uses: actions/upload-artifact@v7
         with:
-          name: void-safetouch-firmware
+          name: void-safevoid-firmware
           path: |
             void_recovery.bin
             void_bootloader.vbi
@@ -45,5 +45,5 @@ jobs:
       - name: Публикация EXE и DLL
         uses: actions/upload-artifact@v7
         with:
-          name: safetouch-setup-x64
-          path: windows/build/Release/SafeTouchSetup.exe
+          name: safevoid-setup-x64
+          path: windows/build/Release/SafeVoidSetup.exe

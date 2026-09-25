@@ -42,9 +42,9 @@ static const uint8_t config_descriptor[]={9,2,41,0,1,1,0,0x80,25,9,4,0,0,2,3,0,0
  9,0x21,0x11,1,0,1,0x22,sizeof(report_descriptor),0,7,5,0x81,3,ST_REPORT_SIZE,0,10,7,5,2,3,ST_REPORT_SIZE,0,10};
 static const uint8_t string_language[]={4,3,9,4};
 static const uint8_t string_manufacturer[]={10,3,'V',0,'o',0,'i',0,'d',0};
-static const uint8_t string_product[]={32,3,'S',0,'a',0,'f',0,'e',0,'T',0,'o',0,'u',0,'c',0,'h',0,' ',0,'L',0,'o',0,'g',0,'i',0,'n',0};
+static const uint8_t string_product[]={30,3,'S',0,'a',0,'f',0,'e',0,'V',0,'o',0,'i',0,'d',0,' ',0,'L',0,'o',0,'g',0,'i',0,'n',0};
 static const uint8_t string_serial[]={20,3,'S',0,'T',0,'L',0,'-',0,'0',0,'0',0,'0',0,'1',0};
-static const uint8_t string_interface[]={38,3,'S',0,'a',0,'f',0,'e',0,'T',0,'o',0,'u',0,'c',0,'h',0,' ',0,'A',0,'u',0,'t',0,'h',0,' ',0,'H',0,'I',0,'D',0};
+static const uint8_t string_interface[]={36,3,'S',0,'a',0,'f',0,'e',0,'V',0,'o',0,'i',0,'d',0,' ',0,'A',0,'u',0,'t',0,'h',0,' ',0,'H',0,'I',0,'D',0};
 
 static uint8_t ep0_buffer[64],request_report[64],reply_report[64];
 static const uint8_t *ep0_data;static uint16_t ep0_length,ep0_offset;static uint8_t ep0_zlp,ep0_active;

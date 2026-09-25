@@ -135,13 +135,13 @@ static void render(void)
     const uint8_t *cfg=flash_config();char name[17];const uint8_t *stored_name=cfg?config_name(cfg):0;for(unsigned i=0;i<16;++i)name[i]=stored_name?(char)stored_name[i]:0;name[16]=0;
     displayed_card_present=(uint8_t)card_present();
     update_button_lights();
-    if(state==ST_STATE_UNENROLLED)lcd_screen("SAFETOUCH","NOT REGISTERED","RUN SETUP");
+    if(state==ST_STATE_UNENROLLED)lcd_screen("SAFEVOID","NOT REGISTERED","RUN SETUP");
     else if(state==ST_STATE_IDLE)lcd_screen("WINDOWS LOGIN",name,displayed_card_present?"CARD INSERTED":"INSERT CARD");
     else if(state==ST_STATE_INSERT_CARD)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,pending_enrollment==2?"INSERT CARD":"INSERT CARD");
     else if(state==ST_STATE_READING_CARD)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,"READING CARD");
     else if(state==ST_STATE_PRESS_GREEN)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,pending_enrollment==2?"CONFIRM ADD?":"CONFIRM? YES/NO");
     else if(state==ST_STATE_AUTH_OK)lcd_screen("WINDOWS LOGIN",name,"SIGNING IN");
-    else if(state==ST_STATE_ENROLLED)lcd_screen("SAFETOUCH",name,"REGISTERED");
+    else if(state==ST_STATE_ENROLLED)lcd_screen("SAFEVOID",name,"REGISTERED");
     else if(state==ST_STATE_CANCELED)lcd_screen("WINDOWS LOGIN",name,"CANCELED");
     else if(state==ST_STATE_ACCESS_DENIED)lcd_screen("ACCESS DENIED",name,"REMOVE CARD");
     else lcd_screen("WINDOWS LOGIN",name,"DEVICE ERROR");

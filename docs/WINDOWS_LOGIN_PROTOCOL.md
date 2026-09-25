@@ -1,4 +1,4 @@
-# SafeTouch Windows login protocol v1
+# SafeVoid Windows login protocol v1
 
 The login application enumerates as vendor-defined HID `1209:B008`. Reports are
 64 bytes and do not contain a report ID on the wire. `1209` is the community
@@ -14,6 +14,10 @@ writes the secret and card fingerprint to alternating 128-byte Flash pages.
 Re-enrollment requires both buttons to be held when the command arrives.
 
 Derived values are domain separated:
+
+The original `SafeTouch ... v1` byte labels below are protocol constants, not
+displayed branding. They remain unchanged so existing devices and encrypted
+credential files continue to work after the SafeVoid rename.
 
 ```text
 auth_key = HMAC-SHA256(device_secret, "SafeTouch auth key v1")

@@ -1,4 +1,4 @@
-# Void SafeTouch Bootloader
+# Void SafeVoid Bootloader
 
 Открытая прошивка, USB-загрузчик и аппаратная документация для снятого с
 производства терминала чтения смарт-карт **SafeTech SafeTouch**.
@@ -13,7 +13,7 @@
 - HID-прошивальщик, не требующий отдельного драйвера в Windows и Linux;
 - поддержка LCD и готовый пример меню с кнопками и светодиодами.
 - отдельное приложение `windows-login.vbi`, Windows Setup EXE и собственный
-  Credential Provider DLL для входа по SafeTouch без эмуляции клавиатуры.
+  Credential Provider DLL для входа по SafeVoid без эмуляции клавиатуры.
 
 > [!WARNING]
 > Первичная установка уничтожает штатную прошивку SafeTouch. Считать её не

@@ -9,12 +9,12 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw 'Run install.ps1 from an elevated PowerShell window.'
 }
 if (-not [Environment]::Is64BitProcess) { throw 'Run the installer from 64-bit PowerShell.' }
-$dll = Join-Path $BuildDirectory 'SafeTouchCredentialProvider.dll'
-$setup = Join-Path $BuildDirectory 'SafeTouchSetup.exe'
+$dll = Join-Path $BuildDirectory 'SafeVoidCredentialProvider.dll'
+$setup = Join-Path $BuildDirectory 'SafeVoidSetup.exe'
 if (-not (Test-Path -LiteralPath $dll) -or -not (Test-Path -LiteralPath $setup)) {
     throw "Build output was not found in $BuildDirectory"
 }
-$destination = Join-Path $env:ProgramFiles 'SafeTouch'
+$destination = Join-Path $env:ProgramFiles 'SafeVoid'
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 Copy-Item -LiteralPath $dll -Destination $destination -Force
 Copy-Item -LiteralPath $setup -Destination $destination -Force
@@ -22,10 +22,10 @@ $clsid = '{C77E1F56-30A7-4D92-84B7-4BCB6B3213A8}'
 $comKey = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes\CLSID\$clsid"
 $providerKey = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\$clsid"
 New-Item -Path "$comKey\InprocServer32" -Force | Out-Null
-Set-Item -Path $comKey -Value 'SafeTouch Credential Provider'
-Set-Item -Path "$comKey\InprocServer32" -Value (Join-Path $destination 'SafeTouchCredentialProvider.dll')
+Set-Item -Path $comKey -Value 'SafeVoid Credential Provider'
+Set-Item -Path "$comKey\InprocServer32" -Value (Join-Path $destination 'SafeVoidCredentialProvider.dll')
 New-ItemProperty -Path "$comKey\InprocServer32" -Name ThreadingModel -Value Apartment -PropertyType String -Force | Out-Null
 New-Item -Path $providerKey -Force | Out-Null
-Set-Item -Path $providerKey -Value 'SafeTouch'
+Set-Item -Path $providerKey -Value 'SafeVoid'
 Write-Host 'Credential Provider installed. The built-in password provider was not changed.'
-Write-Host "Next: run elevated `"$destination\SafeTouchSetup.exe`" while SafeTouch is connected."
+Write-Host "Next: run elevated `"$destination\SafeVoidSetup.exe`" while SafeVoid is connected."

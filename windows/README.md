@@ -1,12 +1,12 @@
-# SafeTouch Windows Login
+# SafeVoid Windows Login
 
 The Windows part contains two native x64 components:
 
-- `SafeTouchSetup.exe` is a self-contained elevated GUI installer. It embeds,
-  extracts and registers the provider DLL, provisions the attached SafeTouch,
+- `SafeVoidSetup.exe` is a self-contained elevated GUI installer. It embeds,
+  extracts and registers the provider DLL, provisions the attached SafeVoid,
   manages the primary and backup cards, verifies the Windows password once and
-  writes `%ProgramData%\SafeTouch\credentials.dat`;
-- `SafeTouchCredentialProvider.dll` adds an independent SafeTouch tile to
+  writes `%ProgramData%\SafeVoid\credentials.dat`;
+- `SafeVoidCredentialProvider.dll` adds an independent SafeVoid tile to
   LogonUI. It does not wrap, replace or disable Microsoft's password provider.
 
 ## Build
@@ -38,16 +38,16 @@ active, then physically reconnect USB so the application enumerates as
 ```
 
 Then launch the single setup executable. Windows requests administrator rights;
-the app installs itself and the embedded DLL into `Program Files\SafeTouch` and
+the app installs itself and the embedded DLL into `Program Files\SafeVoid` and
 registers the Credential Provider automatically:
 
 ```powershell
-.\build\Release\SafeTouchSetup.exe
+.\build\Release\SafeVoidSetup.exe
 ```
 
 The minimal dark UI shows component, USB and card status. Select the Windows
 account, enter its password and use **Set up primary card**. To replace an
-existing enrollment, hold both SafeTouch buttons while confirming the action.
+existing enrollment, hold both SafeVoid buttons while confirming the action.
 After the primary card is ready, **Add backup card** stores a second independent
 card identifier without changing the encrypted Windows credential. Adding or
 replacing the backup also requires both physical buttons, followed by GREEN.
@@ -57,13 +57,13 @@ fingerprint, so every readable ISO 7816 card can be enrolled. ATR values are
 commonly shared by many cards and should not be treated as a card-held secret.
 
 After setup, lock the workstation with `Win+L`. The provider starts monitoring
-SafeTouch in the background even when the normal password tile is visible.
-Inserting the registered card makes **SafeTouch** the default tile; pressing
+SafeVoid in the background even when the normal password tile is visible.
+Inserting the registered card makes **SafeVoid** the default tile; pressing
 GREEN completes the challenge-response and asks LogonUI to submit the standard
 Windows credentials automatically. The status changes through `Insert card`,
-`Reading card...`, `Press GREEN on SafeTouch`, and `Signing in...`.
+`Reading card...`, `Press GREEN on SafeVoid`, and `Signing in...`.
 
-The SafeTouch LCD also tracks the physical card while idle: it displays
+The SafeVoid LCD also tracks the physical card while idle: it displays
 `INSERT CARD` when the slot is empty and `CARD INSERTED` while a card is in the
 slot. A rejected card displays `REMOVE CARD`; removing it rearms the same
 challenge for another card.
@@ -95,7 +95,7 @@ Credential Provider protocol.
 
 ## Security boundary
 
-This revision of SafeTouch has no secure element and the repository deliberately
+This revision of SafeVoid has no secure element and the repository deliberately
 does not set the AT91 security bit. A physical attacker with JTAG access can
 extract or replace firmware and device configuration. Enrollment also provisions
 the random device secret over the local USB cable. The challenge-response

@@ -13,13 +13,13 @@ $keys = @(
 )
 foreach ($key in $keys) { if (Test-Path -LiteralPath $key) { Remove-Item -LiteralPath $key -Recurse -Force } }
 $programFilesRoot = [IO.Path]::GetFullPath($env:ProgramFiles).TrimEnd('\')
-$destination = [IO.Path]::GetFullPath((Join-Path $programFilesRoot 'SafeTouch'))
+$destination = [IO.Path]::GetFullPath((Join-Path $programFilesRoot 'SafeVoid'))
 if (-not $destination.StartsWith("$programFilesRoot\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to remove unexpected path: $destination"
 }
 if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Recurse -Force }
 if ($PurgeCredentials) {
-    $credentials = Join-Path $env:ProgramData 'SafeTouch\credentials.dat'
+    $credentials = Join-Path $env:ProgramData 'SafeVoid\credentials.dat'
     if (Test-Path -LiteralPath $credentials) { Remove-Item -LiteralPath $credentials -Force }
 }
-Write-Host 'SafeTouch Credential Provider removed. Sign out or reboot to unload an existing DLL instance.'
+Write-Host 'SafeVoid Credential Provider removed. Sign out or reboot to unload an existing DLL instance.'

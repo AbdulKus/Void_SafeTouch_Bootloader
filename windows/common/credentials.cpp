@@ -31,10 +31,11 @@ bool HardenAcl(const std::filesystem::path& path){
     BOOL present=FALSE,def=FALSE;PACL dacl=nullptr;bool ok=GetSecurityDescriptorDacl(sd,&present,&dacl,&def)&&SetNamedSecurityInfoW(const_cast<LPWSTR>(path.c_str()),SE_FILE_OBJECT,DACL_SECURITY_INFORMATION|PROTECTED_DACL_SECURITY_INFORMATION,nullptr,nullptr,dacl,nullptr)==ERROR_SUCCESS;LocalFree(sd);return ok;
 }
 }
-std::filesystem::path DefaultCredentialsPath(){PWSTR raw=nullptr;if(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData,KF_FLAG_DEFAULT,nullptr,&raw))){std::filesystem::path result=std::filesystem::path(raw)/L"SafeTouch"/L"credentials.dat";CoTaskMemFree(raw);return result;}return std::filesystem::path(L"C:\\ProgramData\\SafeTouch\\credentials.dat");}
+std::filesystem::path DefaultCredentialsPath(){PWSTR raw=nullptr;if(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData,KF_FLAG_DEFAULT,nullptr,&raw))){std::filesystem::path result=std::filesystem::path(raw)/L"SafeVoid"/L"credentials.dat";CoTaskMemFree(raw);return result;}return std::filesystem::path(L"C:\\ProgramData\\SafeVoid\\credentials.dat");}
+std::filesystem::path LegacyCredentialsPath(){PWSTR raw=nullptr;if(SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramData,KF_FLAG_DEFAULT,nullptr,&raw))){std::filesystem::path result=std::filesystem::path(raw)/L"SafeTouch"/L"credentials.dat";CoTaskMemFree(raw);return result;}return std::filesystem::path(L"C:\\ProgramData\\SafeTouch\\credentials.dat");}
 bool SaveCredentialRecord(const std::filesystem::path& path,CredentialRecord& record,const Key32& auth,const Key32& wrap,std::span<const wchar_t> password,std::wstring& error){
     auto entropy=Entropy(record);DATA_BLOB input{static_cast<DWORD>(auth.size()),const_cast<BYTE*>(auth.data())},extra{static_cast<DWORD>(entropy.size()),entropy.data()},protectedBlob{};
-    if(!CryptProtectData(&input,L"SafeTouch proof verifier",&extra,nullptr,nullptr,CRYPTPROTECT_LOCAL_MACHINE|CRYPTPROTECT_UI_FORBIDDEN,&protectedBlob)){error=L"CryptProtectData failed";return false;}
+    if(!CryptProtectData(&input,L"SafeVoid proof verifier",&extra,nullptr,nullptr,CRYPTPROTECT_LOCAL_MACHINE|CRYPTPROTECT_UI_FORBIDDEN,&protectedBlob)){error=L"CryptProtectData failed";return false;}
     record.protectedAuthKey.assign(protectedBlob.pbData,protectedBlob.pbData+protectedBlob.cbData);SecureZeroMemory(protectedBlob.pbData,protectedBlob.cbData);LocalFree(protectedBlob.pbData);
     auto aad=Aad(record);const auto* passwordBytes=reinterpret_cast<const uint8_t*>(password.data());size_t passwordSize=password.size()*sizeof(wchar_t);
     if(!AesGcmEncrypt(wrap,std::span<const uint8_t>(passwordBytes,passwordSize),aad,record.iv,record.ciphertext,record.tag)){error=L"AES-256-GCM encryption failed";return false;}
