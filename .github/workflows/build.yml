@@ -30,7 +30,7 @@ jobs:
             examples/windows-login/windows-login.vbi
 
   windows:
-    name: Windows Credential Provider
+    name: Windows Setup
     runs-on: windows-latest
     steps:
       - name: Получение исходников
@@ -45,7 +45,5 @@ jobs:
       - name: Публикация EXE и DLL
         uses: actions/upload-artifact@v7
         with:
-          name: safetouch-windows-x64
-          path: |
-            windows/build/Release/SafeTouchSetup.exe
-            windows/build/Release/SafeTouchCredentialProvider.dll
+          name: safetouch-setup-x64
+          path: windows/build/Release/SafeTouchSetup.exe
