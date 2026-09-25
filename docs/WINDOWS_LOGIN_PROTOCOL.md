@@ -57,3 +57,10 @@ The card identifier is deliberately not treated as secret. If EMV identification
 is unavailable, setup accepts the ATR-only fallback by default so any readable
 ISO 7816 card can be enrolled. The operator can require an EMV-derived identity
 with `--require-emv`.
+
+The Credential Provider starts a challenge when LogonUI advises the provider,
+not only after its tile is selected. When the registered card reaches the
+confirmation state, the provider requests re-enumeration with its credential as
+the default. After GREEN and successful proof verification, it requests the
+documented default-credential auto-logon path and returns ordinary packed
+username/domain/password credentials.

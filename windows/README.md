@@ -49,9 +49,17 @@ only an ATR-derived fingerprint, so every readable ISO 7816 card can be
 enrolled. ATR values are commonly shared by many cards; use `--require-emv` to
 require a card-specific EMV identifier instead.
 
-After setup, lock the workstation with `Win+L` and choose the **SafeTouch**
-tile. The status changes through `Insert card`, `Reading card...`, `Press GREEN
-on SafeTouch`, and `Signing in...`.
+After setup, lock the workstation with `Win+L`. The provider starts monitoring
+SafeTouch in the background even when the normal password tile is visible.
+Inserting the registered card makes **SafeTouch** the default tile; pressing
+GREEN completes the challenge-response and asks LogonUI to submit the standard
+Windows credentials automatically. The status changes through `Insert card`,
+`Reading card...`, `Press GREEN on SafeTouch`, and `Signing in...`.
+
+The SafeTouch LCD also tracks the physical card while idle: it displays
+`INSERT CARD` when the slot is empty and `CARD INSERTED` while a card is in the
+slot. A rejected card displays `REMOVE CARD`; removing it rearms the same
+challenge for another card.
 
 ## Credential file
 

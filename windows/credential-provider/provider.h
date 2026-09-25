@@ -21,6 +21,7 @@ public:
     IFACEMETHODIMP GetFieldDescriptorAt(DWORD index,CREDENTIAL_PROVIDER_FIELD_DESCRIPTOR** descriptor) override;
     IFACEMETHODIMP GetCredentialCount(DWORD* count,DWORD* defaultIndex,BOOL* autoLogon) override;
     IFACEMETHODIMP GetCredentialAt(DWORD index,ICredentialProviderCredential** credential) override;
+    void CredentialBecameActive();
     void AuthenticationReady();
     CREDENTIAL_PROVIDER_USAGE_SCENARIO Scenario() const { return scenario_; }
 private:

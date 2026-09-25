@@ -34,6 +34,9 @@ public:
     IFACEMETHODIMP ReportResult(NTSTATUS status,NTSTATUS substatus,PWSTR* text,CREDENTIAL_PROVIDER_STATUS_ICON* icon) override;
     IFACEMETHODIMP GetUserSid(PWSTR* sid) override;
     bool Ready() const { return ready_.load(); }
+    bool WantsDefault() const { return wantsDefault_.load(); }
+    void StartMonitoring();
+    void StopMonitoring();
 private:
     void Start();
     void Stop();
@@ -47,6 +50,6 @@ private:
     std::mutex mutex_;
     ICredentialProviderCredentialEvents* events_{};
     std::thread worker_;
-    std::atomic_bool stop_{false},running_{false},ready_{false};
+    std::atomic_bool stop_{false},running_{false},ready_{false},wantsDefault_{false};
     safetouch::Key32 wrapKey_{};
 };
