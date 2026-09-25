@@ -98,10 +98,21 @@ static void derive_auth_response(void)
     for(unsigned i=0;i<16;++i)message[used++]=cfg[CFG_DEVICE_ID+i];
     hmac_sha256(auth_key,32,message,used,full);for(unsigned i=0;i<16;++i)auth_proof[i]=full[i];wipe(auth_key,32);wipe(full,32);wipe(message,sizeof(message));
 }
+static void update_button_lights(void)
+{
+    unsigned on=0;
+    if(state==ST_STATE_PRESS_GREEN)on=LED_GREEN|LED_RED;
+    else if(state==ST_STATE_ACCESS_DENIED||state==ST_STATE_CANCELED||state==ST_STATE_ERROR)on=LED_RED;
+    else if(card_present())on=LED_GREEN;
+    else on=LED_RED;
+    PIO_SODR=LED_GREEN|LED_RED;
+    PIO_CODR=on;
+}
 static void render(void)
 {
     const uint8_t *cfg=flash_config();char name[17];for(unsigned i=0;i<16;++i)name[i]=cfg?((const char *)cfg+CFG_NAME)[i]:0;name[16]=0;
     displayed_card_present=(uint8_t)card_present();
+    update_button_lights();
     if(state==ST_STATE_UNENROLLED)lcd_screen("SAFETOUCH","NOT REGISTERED","RUN SETUP");
     else if(state==ST_STATE_IDLE)lcd_screen("WINDOWS LOGIN",name,displayed_card_present?"CARD INSERTED":"INSERT CARD");
     else if(state==ST_STATE_INSERT_CARD)lcd_screen("WINDOWS LOGIN",name,"INSERT CARD");
@@ -138,12 +149,12 @@ static void process_request(const uint8_t request[64])
 static void poll_card_flow(void)
 {
     int present=card_present();
-    if((state==ST_STATE_PRESS_GREEN||state==ST_STATE_ACCESS_DENIED)&&!present){card_off();current_card_source=ST_CARD_ID_NONE;state=ST_STATE_INSERT_CARD;PIO_SODR=LED_RED;render();}
+    if((state==ST_STATE_PRESS_GREEN||state==ST_STATE_ACCESS_DENIED)&&!present){card_off();current_card_source=ST_CARD_ID_NONE;state=ST_STATE_INSERT_CARD;render();}
     else if(state==ST_STATE_IDLE&&(uint8_t)present!=displayed_card_present)render();
     if(state==ST_STATE_INSERT_CARD&&card_present()){state=ST_STATE_READING_CARD;render();current_card_source=card_read_identity(current_card);
         if(!current_card_source){state=ST_STATE_ERROR;last_result=ST_RESULT_BAD_STATE;render();return;}
         if(pending_enrollment&&current_card_source==ST_CARD_ID_ATR&&!allow_atr){state=ST_STATE_ERROR;last_result=ST_RESULT_CARD_WEAK_ID;render();return;}
-        const uint8_t *cfg=flash_config();if(!pending_enrollment&&!bytes_equal(current_card,cfg+CFG_CARD_ID,16)){state=ST_STATE_ACCESS_DENIED;last_result=ST_RESULT_OK;PIO_CODR=LED_RED;render();return;}
+        const uint8_t *cfg=flash_config();if(!pending_enrollment&&!bytes_equal(current_card,cfg+CFG_CARD_ID,16)){state=ST_STATE_ACCESS_DENIED;last_result=ST_RESULT_OK;render();return;}
         state=ST_STATE_PRESS_GREEN;render();}
     int green_up=(PIO_PDSR&BUTTON_GREEN)!=0,red_up=(PIO_PDSR&BUTTON_RED)!=0;
     if(!buttons_armed){
@@ -152,7 +163,7 @@ static void poll_card_flow(void)
         return;
     }
     if(state==ST_STATE_PRESS_GREEN&&green_was_up&&!green_up){if(pending_enrollment){if(save_config()){state=ST_STATE_ENROLLED;last_result=ST_RESULT_OK;}else{state=ST_STATE_ERROR;last_result=ST_RESULT_FLASH;}wipe(pending_secret,32);wipe(pending_name,16);pending_enrollment=0;}
-        else {derive_auth_response();state=ST_STATE_AUTH_OK;}PIO_CODR=LED_GREEN;render();}
+        else {derive_auth_response();state=ST_STATE_AUTH_OK;}render();}
     if((state==ST_STATE_PRESS_GREEN||state==ST_STATE_INSERT_CARD)&&red_was_up&&!red_up){state=ST_STATE_CANCELED;pending_enrollment=0;last_result=ST_RESULT_OK;wipe(pending_secret,32);wipe(nonce,32);card_off();render();}
     green_was_up=(uint8_t)green_up;red_was_up=(uint8_t)red_up;
 }

@@ -61,6 +61,10 @@ The SafeTouch LCD also tracks the physical card while idle: it displays
 slot. A rejected card displays `REMOVE CARD`; removing it rearms the same
 challenge for another card.
 
+The button lighting follows the same state: RED means that the card slot is
+empty (or that access was denied), GREEN means a card is present, and both
+button lights turn on while `CONFIRM? YES/NO` is displayed.
+
 ## Credential file
 
 The password is AES-256-GCM encrypted. Its wrapping key is derived from the
