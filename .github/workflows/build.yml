@@ -27,3 +27,25 @@ jobs:
             void_recovery.bin
             void_bootloader.vbi
             examples/menu/menu.vbi
+            examples/windows-login/windows-login.vbi
+
+  windows:
+    name: Windows Credential Provider
+    runs-on: windows-latest
+    steps:
+      - name: Получение исходников
+        uses: actions/checkout@v7
+
+      - name: Конфигурация x64
+        run: cmake -S windows -B windows/build -A x64
+
+      - name: Сборка Release
+        run: cmake --build windows/build --config Release --parallel
+
+      - name: Публикация EXE и DLL
+        uses: actions/upload-artifact@v7
+        with:
+          name: safetouch-windows-x64
+          path: |
+            windows/build/Release/SafeTouchSetup.exe
+            windows/build/Release/SafeTouchCredentialProvider.dll

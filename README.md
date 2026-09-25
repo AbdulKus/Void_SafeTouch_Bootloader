@@ -12,6 +12,8 @@
 - раздел приложения размером 52 КиБ;
 - HID-прошивальщик, не требующий отдельного драйвера в Windows и Linux;
 - поддержка LCD и готовый пример меню с кнопками и светодиодами.
+- отдельное приложение `windows-login.vbi`, Windows Setup EXE и собственный
+  Credential Provider DLL для входа по SafeTouch без эмуляции клавиатуры.
 
 > [!WARNING]
 > Первичная установка уничтожает штатную прошивку SafeTouch. Считать её не
@@ -68,6 +70,12 @@ Windows:
 ```powershell
 .\build.ps1
 ```
+
+Сборка прошивки также создаёт
+`examples/windows-login/windows-login.vbi`. Windows-компоненты собираются
+отдельно из каталога [`windows`](windows); инструкция находится в
+[`windows/README.md`](windows/README.md), а бинарный HID-протокол — в
+[`docs/WINDOWS_LOGIN_PROTOCOL.md`](docs/WINDOWS_LOGIN_PROTOCOL.md).
 
 Linux:
 

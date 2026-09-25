@@ -29,3 +29,18 @@ python3 voidtool.py pack --target boot --input void_bootloader.body.bin \
 python3 voidtool.py pack --target app --input examples/menu/menu.bin \
   --output examples/menu/menu.vbi --entry 0x00103080 --version 1
 
+"$CC" "${COMMON[@]}" -Wl,-T,examples/windows-login/app.ld -Wl,--gc-sections \
+  -Wl,-Map,examples/windows-login/windows-login.map \
+  -o examples/windows-login/windows-login.elf \
+  examples/windows-login/startup.S examples/windows-login/main.c \
+  examples/windows-login/lcd.c examples/windows-login/sha256.c \
+  examples/windows-login/smartcard.c examples/windows-login/usb_hid.c \
+  examples/windows-login/runtime.S
+"$OBJCOPY" -O binary examples/windows-login/windows-login.elf \
+  examples/windows-login/windows-login.bin
+"$SIZE" examples/windows-login/windows-login.elf
+python3 voidtool.py pack --target app \
+  --input examples/windows-login/windows-login.bin \
+  --output examples/windows-login/windows-login.vbi \
+  --entry 0x00103080 --version 1
+

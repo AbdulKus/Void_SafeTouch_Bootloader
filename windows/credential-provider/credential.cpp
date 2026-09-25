@@ -1,0 +1,57 @@
+#define SECURITY_WIN32
+#include "credential.h"
+#include "provider.h"
+#include "guids.h"
+#include "module.h"
+#include "safetouch_protocol.h"
+#include "hid_device.h"
+#include "crypto.h"
+#include <windows.h>
+#include <wincred.h>
+#include <ntsecapi.h>
+#include <shlwapi.h>
+#include <algorithm>
+#include <chrono>
+#include <climits>
+#include <cstring>
+
+namespace {
+enum Fields : DWORD { FIELD_TITLE,FIELD_STATUS,FIELD_RETRY,FIELD_COUNT };
+struct ComApartment { HRESULT result{CoInitializeEx(nullptr,COINIT_MULTITHREADED)}; ~ComApartment(){if(SUCCEEDED(result))CoUninitialize();} };
+HRESULT Duplicate(PCWSTR text,PWSTR* value){return SHStrDupW(text?text:L"",value);}
+void InitUnicode(UNICODE_STRING& target,wchar_t* text){size_t characters=wcslen(text);target.Length=static_cast<USHORT>(characters*sizeof(wchar_t));target.MaximumLength=target.Length;target.Buffer=text;}
+HRESULT PackLogon(const std::wstring& domain,const std::wstring& user,wchar_t* password,CREDENTIAL_PROVIDER_USAGE_SCENARIO scenario,BYTE** bytes,DWORD* size){
+    if(domain.size()>USHRT_MAX/sizeof(wchar_t)||user.size()>USHRT_MAX/sizeof(wchar_t)||wcslen(password)>USHRT_MAX/sizeof(wchar_t))return E_INVALIDARG;
+    wchar_t* effective=password;safetouch::SecureVector<wchar_t> protectedPassword;
+    if(scenario==CPUS_UNLOCK_WORKSTATION){DWORD required=0;CredProtectW(FALSE,password,static_cast<DWORD>(wcslen(password)+1),nullptr,0,&required,nullptr);if(GetLastError()!=ERROR_INSUFFICIENT_BUFFER)return HRESULT_FROM_WIN32(GetLastError());protectedPassword.resize(required);if(!CredProtectW(FALSE,password,static_cast<DWORD>(wcslen(password)+1),protectedPassword.data(),required,&required,nullptr))return HRESULT_FROM_WIN32(GetLastError());effective=protectedPassword.data();}
+    KERB_INTERACTIVE_UNLOCK_LOGON value{};value.Logon.MessageType=scenario==CPUS_UNLOCK_WORKSTATION?KerbWorkstationUnlockLogon:KerbInteractiveLogon;InitUnicode(value.Logon.LogonDomainName,const_cast<wchar_t*>(domain.c_str()));InitUnicode(value.Logon.UserName,const_cast<wchar_t*>(user.c_str()));InitUnicode(value.Logon.Password,effective);
+    size_t total=sizeof(value)+value.Logon.LogonDomainName.Length+value.Logon.UserName.Length+value.Logon.Password.Length;if(total>MAXDWORD)return E_INVALIDARG;auto* buffer=static_cast<BYTE*>(CoTaskMemAlloc(total));if(!buffer)return E_OUTOFMEMORY;memcpy(buffer,&value,sizeof(value));auto* packed=reinterpret_cast<KERB_INTERACTIVE_UNLOCK_LOGON*>(buffer);BYTE* next=buffer+sizeof(value);
+    auto copy=[&](UNICODE_STRING& string){memcpy(next,string.Buffer,string.Length);string.Buffer=reinterpret_cast<PWSTR>(next-buffer);next+=string.Length;};copy(packed->Logon.LogonDomainName);copy(packed->Logon.UserName);copy(packed->Logon.Password);*bytes=buffer;*size=static_cast<DWORD>(total);return S_OK;
+}
+HRESULT NegotiatePackage(ULONG* package){HANDLE lsa=nullptr;NTSTATUS status=LsaConnectUntrusted(&lsa);if(status<0)return HRESULT_FROM_NT(status);LSA_STRING name{};char negotiate[]="Negotiate";name.Buffer=negotiate;name.Length=static_cast<USHORT>(strlen(negotiate));name.MaximumLength=name.Length+1;status=LsaLookupAuthenticationPackage(lsa,&name,package);LsaDeregisterLogonProcess(lsa);return status<0?HRESULT_FROM_NT(status):S_OK;}
+}
+
+SafeTouchCredential::SafeTouchCredential(SafeTouchProvider* provider):provider_(provider){InterlockedIncrement(&g_objectCount);LoadCredentialRecord(safetouch::DefaultCredentialsPath(),record_,loadError_);if(!loadError_.empty())status_=loadError_;}
+SafeTouchCredential::~SafeTouchCredential(){Stop();if(events_)events_->Release();SecureZeroMemory(wrapKey_.data(),wrapKey_.size());InterlockedDecrement(&g_objectCount);}
+HRESULT SafeTouchCredential::QueryInterface(REFIID id,void** value){if(!value)return E_POINTER;*value=nullptr;if(id==IID_IUnknown||id==IID_ICredentialProviderCredential)*value=static_cast<ICredentialProviderCredential*>(this);else if(id==IID_ICredentialProviderCredential2)*value=static_cast<ICredentialProviderCredential2*>(this);else return E_NOINTERFACE;AddRef();return S_OK;}
+ULONG SafeTouchCredential::AddRef(){return ++references_;}ULONG SafeTouchCredential::Release(){ULONG n=--references_;if(!n)delete this;return n;}
+HRESULT SafeTouchCredential::Advise(ICredentialProviderCredentialEvents* events,UINT_PTR context){std::lock_guard lock(mutex_);if(events_)events_->Release();events_=events;adviseContext_=context;if(events_)events_->AddRef();return S_OK;}
+HRESULT SafeTouchCredential::UnAdvise(){std::lock_guard lock(mutex_);if(events_){events_->Release();events_=nullptr;}return S_OK;}
+HRESULT SafeTouchCredential::SetSelected(BOOL* autoLogon){if(!autoLogon)return E_POINTER;*autoLogon=FALSE;Start();return S_OK;}
+HRESULT SafeTouchCredential::SetDeselected(){Stop();return S_OK;}
+HRESULT SafeTouchCredential::GetFieldState(DWORD id,CREDENTIAL_PROVIDER_FIELD_STATE* state,CREDENTIAL_PROVIDER_FIELD_INTERACTIVE_STATE* interactive){if(!state||!interactive)return E_POINTER;if(id>=FIELD_COUNT)return E_INVALIDARG;*interactive=CPFIS_NONE;*state=id==FIELD_RETRY?CPFS_DISPLAY_IN_SELECTED_TILE:CPFS_DISPLAY_IN_BOTH;return S_OK;}
+HRESULT SafeTouchCredential::GetStringValue(DWORD id,PWSTR* value){if(!value)return E_POINTER;if(id==FIELD_TITLE)return Duplicate(L"SafeTouch",value);if(id==FIELD_RETRY)return Duplicate(L"Retry",value);if(id==FIELD_STATUS){std::lock_guard lock(mutex_);return Duplicate(status_.c_str(),value);}return E_INVALIDARG;}
+HRESULT SafeTouchCredential::GetBitmapValue(DWORD,HBITMAP*){return E_NOTIMPL;}HRESULT SafeTouchCredential::GetCheckboxValue(DWORD,BOOL*,PWSTR*){return E_NOTIMPL;}HRESULT SafeTouchCredential::GetSubmitButtonValue(DWORD,DWORD*){return E_NOTIMPL;}HRESULT SafeTouchCredential::GetComboBoxValueCount(DWORD,DWORD*,DWORD*){return E_NOTIMPL;}HRESULT SafeTouchCredential::GetComboBoxValueAt(DWORD,DWORD,PWSTR*){return E_NOTIMPL;}HRESULT SafeTouchCredential::SetStringValue(DWORD,PCWSTR){return E_NOTIMPL;}HRESULT SafeTouchCredential::SetCheckboxValue(DWORD,BOOL){return E_NOTIMPL;}HRESULT SafeTouchCredential::SetComboBoxSelectedValue(DWORD,DWORD){return E_NOTIMPL;}
+HRESULT SafeTouchCredential::CommandLinkClicked(DWORD id){if(id!=FIELD_RETRY)return E_INVALIDARG;Stop();Start();return S_OK;}
+void SafeTouchCredential::SetStatus(const wchar_t* text){ICredentialProviderCredentialEvents* callback=nullptr;{std::lock_guard lock(mutex_);status_=text;if(events_){callback=events_;callback->AddRef();}}if(callback){callback->SetFieldString(this,FIELD_STATUS,text);callback->Release();}}
+void SafeTouchCredential::Start(){if(running_.exchange(true))return;if(worker_.joinable())worker_.join();stop_=false;ready_=false;SecureZeroMemory(wrapKey_.data(),wrapKey_.size());if(!loadError_.empty()){SetStatus(loadError_.c_str());running_=false;return;}auto* owner=provider_;owner->AddRef();worker_=std::thread([this,owner]{Worker();owner->Release();});}
+void SafeTouchCredential::Stop(){stop_=true;if(worker_.joinable()){if(worker_.get_id()==std::this_thread::get_id())worker_.detach();else worker_.join();}running_=false;ready_=false;SecureZeroMemory(wrapKey_.data(),wrapKey_.size());}
+void SafeTouchCredential::Worker(){using namespace safetouch;ComApartment apartment;HidDevice device;std::wstring error;if(!device.Open(error)){SetStatus(L"SafeTouch not connected");running_=false;return;}std::array<uint8_t,64> request{},reply{};request[0]=ST_CMD_INFO;if(!device.Command(request,reply,3000,error)||reply[1]!=ST_RESULT_OK||!ConstantTimeEqual(record_.deviceId,std::span<const uint8_t>(reply.data()+ST_INFO_DEVICE_ID_OFFSET,16))||!ConstantTimeEqual(record_.cardId,std::span<const uint8_t>(reply.data()+ST_INFO_CARD_ID_OFFSET,16))){SetStatus(L"Wrong or unregistered SafeTouch");running_=false;return;}
+    Key32 nonce{};if(!RandomBytes(nonce)){SetStatus(L"Random generator failed");running_=false;return;}request.fill(0);request[0]=ST_CMD_AUTH_BEGIN;std::copy(nonce.begin(),nonce.end(),request.begin()+ST_AUTH_NONCE_OFFSET);if(!device.Command(request,reply,3000,error)||reply[1]!=ST_RESULT_OK){SecureZeroMemory(nonce.data(),nonce.size());SetStatus(L"SafeTouch rejected challenge");running_=false;return;}uint8_t previous=0xFF;
+    for(unsigned attempt=0;attempt<480&&!stop_;++attempt){Sleep(250);request.fill(0);request[0]=ST_CMD_STATUS;if(!device.Command(request,reply,3000,error)){SetStatus(L"SafeTouch disconnected");break;}uint8_t state=reply[ST_REPLY_STATE_OFFSET];if(state!=previous){previous=state;if(state==ST_STATE_INSERT_CARD)SetStatus(L"Insert card");else if(state==ST_STATE_READING_CARD)SetStatus(L"Reading card...");else if(state==ST_STATE_PRESS_GREEN)SetStatus(L"Press GREEN on SafeTouch");else if(state==ST_STATE_ACCESS_DENIED)SetStatus(L"Access denied");else if(state==ST_STATE_CANCELED)SetStatus(L"Canceled");else if(state==ST_STATE_ERROR)SetStatus(L"SafeTouch error");}
+        if(state==ST_STATE_ACCESS_DENIED||state==ST_STATE_CANCELED||state==ST_STATE_ERROR)break;if(state==ST_STATE_AUTH_OK){Key32 auth{};std::array<uint8_t,16> expected{};if(!UnprotectAuthKey(record_,auth)||!ComputeAuthProof(auth,nonce,record_.cardId,record_.deviceId,expected)||!ConstantTimeEqual(expected,std::span<const uint8_t>(reply.data()+ST_AUTH_PROOF_OFFSET,16))){SecureZeroMemory(auth.data(),auth.size());SetStatus(L"Cryptographic verification failed");break;}SecureZeroMemory(auth.data(),auth.size());{std::lock_guard lock(mutex_);std::copy_n(reply.begin()+ST_AUTH_WRAP_KEY_OFFSET,32,wrapKey_.begin());}SecureZeroMemory(reply.data()+ST_AUTH_WRAP_KEY_OFFSET,32);SecureZeroMemory(nonce.data(),nonce.size());ready_=true;SetStatus(L"Signing in...");running_=false;provider_->AuthenticationReady();return;}}
+    SecureZeroMemory(nonce.data(),nonce.size());running_=false;
+}
+HRESULT SafeTouchCredential::GetSerialization(CREDENTIAL_PROVIDER_GET_SERIALIZATION_RESPONSE* response,CREDENTIAL_PROVIDER_CREDENTIAL_SERIALIZATION* serialization,PWSTR* status,CREDENTIAL_PROVIDER_STATUS_ICON* icon){if(!response||!serialization||!status||!icon)return E_POINTER;*response=CPGSR_NO_CREDENTIAL_NOT_FINISHED;*status=nullptr;*icon=CPSI_NONE;ZeroMemory(serialization,sizeof(*serialization));if(!ready_)return S_OK;safetouch::Key32 wrap{};{std::lock_guard lock(mutex_);wrap=wrapKey_;SecureZeroMemory(wrapKey_.data(),wrapKey_.size());}ready_=false;safetouch::SecureVector<wchar_t> password;if(!safetouch::DecryptPassword(record_,wrap,password)){SecureZeroMemory(wrap.data(),wrap.size());SetStatus(L"Credential decryption failed");return E_FAIL;}SecureZeroMemory(wrap.data(),wrap.size());HRESULT hr=PackLogon(record_.domain,record_.user,password.data(),provider_->Scenario(),&serialization->rgbSerialization,&serialization->cbSerialization);password.clear();if(FAILED(hr))return hr;hr=NegotiatePackage(&serialization->ulAuthenticationPackage);if(FAILED(hr)){SecureZeroMemory(serialization->rgbSerialization,serialization->cbSerialization);CoTaskMemFree(serialization->rgbSerialization);serialization->rgbSerialization=nullptr;serialization->cbSerialization=0;return hr;}serialization->clsidCredentialProvider=CLSID_SafeTouchProvider;*response=CPGSR_RETURN_CREDENTIAL_FINISHED;return S_OK;}
+HRESULT SafeTouchCredential::ReportResult(NTSTATUS status,NTSTATUS,PWSTR* text,CREDENTIAL_PROVIDER_STATUS_ICON* icon){if(!text||!icon)return E_POINTER;*text=nullptr;*icon=CPSI_NONE;if(status<0){SetStatus(L"Windows sign-in failed. If the password changed, run setup again.");*icon=CPSI_ERROR;}else SetStatus(L"Insert card");return S_OK;}
+HRESULT SafeTouchCredential::GetUserSid(PWSTR* sid){if(!sid)return E_POINTER;return Duplicate(record_.sid.c_str(),sid);}

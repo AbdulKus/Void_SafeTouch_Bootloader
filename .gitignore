@@ -10,6 +10,10 @@ void_bootloader_flash_probe.*
 examples/menu/menu.bin
 examples/menu/menu.elf
 examples/menu/menu.map
+examples/windows-login/windows-login.bin
+examples/windows-login/windows-login.elf
+examples/windows-login/windows-login.map
+windows/build/
 build_probe.ps1
 build_flash_probe.ps1
 ram.ld
