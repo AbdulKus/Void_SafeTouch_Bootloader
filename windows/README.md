@@ -2,9 +2,10 @@
 
 The Windows part contains two native x64 components:
 
-- `SafeTouchSetup.exe` enrolls one local/domain-style Windows account, verifies
-  its password once, provisions the attached SafeTouch and writes
-  `%ProgramData%\SafeTouch\credentials.dat`;
+- `SafeTouchSetup.exe` is a self-contained elevated GUI installer. It embeds,
+  extracts and registers the provider DLL, provisions the attached SafeTouch,
+  manages the primary and backup cards, verifies the Windows password once and
+  writes `%ProgramData%\SafeTouch\credentials.dat`;
 - `SafeTouchCredentialProvider.dll` adds an independent SafeTouch tile to
   LogonUI. It does not wrap, replace or disable Microsoft's password provider.
 
@@ -36,18 +37,24 @@ active, then physically reconnect USB so the application enumerates as
   ..\examples\windows-login\windows-login.vbi --boot
 ```
 
-Then install and enroll:
+Then launch the single setup executable. Windows requests administrator rights;
+the app installs itself and the embedded DLL into `Program Files\SafeTouch` and
+registers the Credential Provider automatically:
 
 ```powershell
-.\install.ps1
-& "$env:ProgramFiles\SafeTouch\SafeTouchSetup.exe"
+.\build\Release\SafeTouchSetup.exe
 ```
 
-For an already enrolled device, hold **both** SafeTouch buttons while starting
-the enrollment command. Setup accepts cards for which the firmware can obtain
-only an ATR-derived fingerprint, so every readable ISO 7816 card can be
-enrolled. ATR values are commonly shared by many cards; use `--require-emv` to
-require a card-specific EMV identifier instead.
+The minimal dark UI shows component, USB and card status. Select the Windows
+account, enter its password and use **Set up primary card**. To replace an
+existing enrollment, hold both SafeTouch buttons while confirming the action.
+After the primary card is ready, **Add backup card** stores a second independent
+card identifier without changing the encrypted Windows credential. Adding or
+replacing the backup also requires both physical buttons, followed by GREEN.
+
+Setup accepts cards for which the firmware can obtain only an ATR-derived
+fingerprint, so every readable ISO 7816 card can be enrolled. ATR values are
+commonly shared by many cards and should not be treated as a card-held secret.
 
 After setup, lock the workstation with `Win+L`. The provider starts monitoring
 SafeTouch in the background even when the normal password tile is visible.

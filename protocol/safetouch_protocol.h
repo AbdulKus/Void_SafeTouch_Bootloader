@@ -7,7 +7,7 @@
 #define ST_USB_PID_LOGIN        0xB008u
 #define ST_REPORT_SIZE          64u
 #define ST_PROTOCOL_MAJOR       1u
-#define ST_PROTOCOL_MINOR       0u
+#define ST_PROTOCOL_MINOR       1u
 
 #define ST_DEVICE_SECRET_SIZE   32u
 #define ST_NONCE_SIZE           32u
@@ -22,6 +22,7 @@ enum st_command {
     ST_CMD_ENROLL_BEGIN = 0x10,
     ST_CMD_STATUS       = 0x11,
     ST_CMD_CANCEL       = 0x12,
+    ST_CMD_ADD_CARD_BEGIN = 0x13,
     ST_CMD_AUTH_BEGIN   = 0x20
 };
 
@@ -34,7 +35,8 @@ enum st_result {
     ST_RESULT_NOT_ENROLLED   = 5,
     ST_RESULT_FLASH          = 6,
     ST_RESULT_CARD_WEAK_ID   = 7,
-    ST_RESULT_BUSY           = 8
+    ST_RESULT_BUSY           = 8,
+    ST_RESULT_DUPLICATE_CARD = 9
 };
 
 enum st_state {
@@ -76,6 +78,8 @@ enum st_card_id_source {
 #define ST_INFO_CARD_ID_OFFSET       20u
 #define ST_INFO_NAME_OFFSET          36u
 #define ST_INFO_VERSION_OFFSET       52u
+#define ST_INFO_FLAGS_OFFSET         54u
+#define ST_INFO_HAS_BACKUP           0x01u
 
 /* Successful STATUS after authentication: proof at 4 and wrapping key at 20. */
 #define ST_AUTH_PROOF_OFFSET         4u

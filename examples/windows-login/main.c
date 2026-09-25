@@ -27,9 +27,14 @@
 #define CFG_SECRET 12u
 #define CFG_DEVICE_ID 44u
 #define CFG_CARD_ID 60u
-#define CFG_CARD_SOURCE 76u
-#define CFG_NAME_LENGTH 77u
-#define CFG_NAME 78u
+#define CFG_V1_CARD_SOURCE 76u
+#define CFG_V1_NAME_LENGTH 77u
+#define CFG_V1_NAME 78u
+#define CFG_BACKUP_CARD_ID 76u
+#define CFG_CARD_SOURCE 92u
+#define CFG_BACKUP_CARD_SOURCE 93u
+#define CFG_NAME_LENGTH 94u
+#define CFG_NAME 95u
 #define CFG_CRC 124u
 
 /* The EFC page buffer must be populated with aligned 32-bit writes. */
@@ -50,8 +55,10 @@ static void wipe(void *memory,unsigned length){volatile uint8_t *p=(volatile uin
 
 static int valid_config(const uint8_t *page)
 {
-    return read_u32(page+CFG_MAGIC)==CONFIG_MAGIC&&read_u32(page+CFG_VERSION)==1u&&
-           page[CFG_NAME_LENGTH]<=ST_DISPLAY_NAME_SIZE&&crc32(page,CFG_CRC)==read_u32(page+CFG_CRC);
+    uint32_t version=read_u32(page+CFG_VERSION);
+    unsigned name_length=version==1u?page[CFG_V1_NAME_LENGTH]:page[CFG_NAME_LENGTH];
+    return read_u32(page+CFG_MAGIC)==CONFIG_MAGIC&&(version==1u||version==2u)&&
+           name_length<=ST_DISPLAY_NAME_SIZE&&crc32(page,CFG_CRC)==read_u32(page+CFG_CRC);
 }
 static const uint8_t *flash_config(void)
 {
@@ -60,6 +67,10 @@ static const uint8_t *flash_config(void)
         return read_u32(a+CFG_GENERATION)>=read_u32(b+CFG_GENERATION)?a:b;
     return av?a:(bv?b:0);
 }
+static unsigned config_card_source(const uint8_t *cfg){return read_u32(cfg+CFG_VERSION)==1u?cfg[CFG_V1_CARD_SOURCE]:cfg[CFG_CARD_SOURCE];}
+static unsigned config_name_length(const uint8_t *cfg){return read_u32(cfg+CFG_VERSION)==1u?cfg[CFG_V1_NAME_LENGTH]:cfg[CFG_NAME_LENGTH];}
+static const uint8_t *config_name(const uint8_t *cfg){return cfg+(read_u32(cfg+CFG_VERSION)==1u?CFG_V1_NAME:CFG_NAME);}
+static int config_has_backup(const uint8_t *cfg){return read_u32(cfg+CFG_VERSION)>=2u&&cfg[CFG_BACKUP_CARD_SOURCE]!=ST_CARD_ID_NONE;}
 __attribute__((section(".ramfunc"),noinline))
 static uint32_t program_page(uint32_t address,const uint8_t *bytes)
 {
@@ -72,16 +83,27 @@ static int save_config(void)
 {
     const uint8_t *old=flash_config();uint32_t generation=old?read_u32(old+CFG_GENERATION)+1u:1u;
     uint32_t target=old==(const uint8_t *)CONFIG_A?CONFIG_B:CONFIG_A;for(unsigned i=0;i<PAGE_SIZE;++i)config_page[i]=0xFF;
-    write_u32(config_page+CFG_MAGIC,CONFIG_MAGIC);write_u32(config_page+CFG_VERSION,1);write_u32(config_page+CFG_GENERATION,generation);
+    write_u32(config_page+CFG_MAGIC,CONFIG_MAGIC);write_u32(config_page+CFG_VERSION,2);write_u32(config_page+CFG_GENERATION,generation);
     for(unsigned i=0;i<32;++i)config_page[CFG_SECRET+i]=pending_secret[i];
     uint8_t digest[32],material[64];for(unsigned i=0;i<32;++i)material[i]=pending_secret[i];
     const char label[]=ST_LABEL_DEVICE_ID;for(unsigned i=0;i<sizeof(label)-1;++i)material[32+i]=(uint8_t)label[i];sha256(material,32u+sizeof(label)-1u,digest);
     for(unsigned i=0;i<16;++i)config_page[CFG_DEVICE_ID+i]=digest[i];
     for(unsigned i=0;i<16;++i)config_page[CFG_CARD_ID+i]=current_card[i];
-    config_page[CFG_CARD_SOURCE]=(uint8_t)current_card_source;unsigned length=0;while(length<16&&pending_name[length])++length;config_page[CFG_NAME_LENGTH]=(uint8_t)length;
+    config_page[CFG_CARD_SOURCE]=(uint8_t)current_card_source;config_page[CFG_BACKUP_CARD_SOURCE]=ST_CARD_ID_NONE;unsigned length=0;while(length<16&&pending_name[length])++length;config_page[CFG_NAME_LENGTH]=(uint8_t)length;
     for(unsigned i=0;i<16;++i)config_page[CFG_NAME+i]=pending_name[i];
     write_u32(config_page+CFG_CRC,crc32(config_page,CFG_CRC));
     int ok=program_page(target,config_page)==0&&valid_config((const uint8_t *)target);wipe(digest,sizeof(digest));wipe(material,sizeof(material));wipe(config_page,sizeof(config_page));return ok;
+}
+static int save_backup_config(void)
+{
+    const uint8_t *old=flash_config();if(!old)return 0;uint32_t generation=read_u32(old+CFG_GENERATION)+1u;
+    uint32_t target=old==(const uint8_t *)CONFIG_A?CONFIG_B:CONFIG_A;for(unsigned i=0;i<PAGE_SIZE;++i)config_page[i]=0xFF;
+    write_u32(config_page+CFG_MAGIC,CONFIG_MAGIC);write_u32(config_page+CFG_VERSION,2);write_u32(config_page+CFG_GENERATION,generation);
+    for(unsigned i=0;i<32;++i)config_page[CFG_SECRET+i]=old[CFG_SECRET+i];
+    for(unsigned i=0;i<16;++i){config_page[CFG_DEVICE_ID+i]=old[CFG_DEVICE_ID+i];config_page[CFG_CARD_ID+i]=old[CFG_CARD_ID+i];config_page[CFG_BACKUP_CARD_ID+i]=current_card[i];}
+    config_page[CFG_CARD_SOURCE]=(uint8_t)config_card_source(old);config_page[CFG_BACKUP_CARD_SOURCE]=(uint8_t)current_card_source;
+    unsigned length=config_name_length(old);config_page[CFG_NAME_LENGTH]=(uint8_t)length;const uint8_t *name=config_name(old);for(unsigned i=0;i<16;++i)config_page[CFG_NAME+i]=i<length?name[i]:0;
+    write_u32(config_page+CFG_CRC,crc32(config_page,CFG_CRC));int ok=program_page(target,config_page)==0&&valid_config((const uint8_t *)target);wipe(config_page,sizeof(config_page));return ok;
 }
 
 void clocks_init(void)
@@ -110,14 +132,14 @@ static void update_button_lights(void)
 }
 static void render(void)
 {
-    const uint8_t *cfg=flash_config();char name[17];for(unsigned i=0;i<16;++i)name[i]=cfg?((const char *)cfg+CFG_NAME)[i]:0;name[16]=0;
+    const uint8_t *cfg=flash_config();char name[17];const uint8_t *stored_name=cfg?config_name(cfg):0;for(unsigned i=0;i<16;++i)name[i]=stored_name?(char)stored_name[i]:0;name[16]=0;
     displayed_card_present=(uint8_t)card_present();
     update_button_lights();
     if(state==ST_STATE_UNENROLLED)lcd_screen("SAFETOUCH","NOT REGISTERED","RUN SETUP");
     else if(state==ST_STATE_IDLE)lcd_screen("WINDOWS LOGIN",name,displayed_card_present?"CARD INSERTED":"INSERT CARD");
-    else if(state==ST_STATE_INSERT_CARD)lcd_screen("WINDOWS LOGIN",name,"INSERT CARD");
-    else if(state==ST_STATE_READING_CARD)lcd_screen("WINDOWS LOGIN",name,"READING CARD");
-    else if(state==ST_STATE_PRESS_GREEN)lcd_screen("WINDOWS LOGIN",name,"CONFIRM? YES/NO");
+    else if(state==ST_STATE_INSERT_CARD)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,pending_enrollment==2?"INSERT CARD":"INSERT CARD");
+    else if(state==ST_STATE_READING_CARD)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,"READING CARD");
+    else if(state==ST_STATE_PRESS_GREEN)lcd_screen(pending_enrollment==2?"ADD BACKUP":"WINDOWS LOGIN",name,pending_enrollment==2?"CONFIRM ADD?":"CONFIRM? YES/NO");
     else if(state==ST_STATE_AUTH_OK)lcd_screen("WINDOWS LOGIN",name,"SIGNING IN");
     else if(state==ST_STATE_ENROLLED)lcd_screen("SAFETOUCH",name,"REGISTERED");
     else if(state==ST_STATE_CANCELED)lcd_screen("WINDOWS LOGIN",name,"CANCELED");
@@ -134,12 +156,13 @@ static void process_request(const uint8_t request[64])
 {
     uint8_t reply[64];for(unsigned i=0;i<64;++i)reply[i]=0;reply[0]=request[0];reply[1]=ST_RESULT_OK;reply[2]=state;
     const uint8_t *cfg=flash_config();
-    if(request[0]==ST_CMD_INFO){reply[3]=cfg?cfg[CFG_CARD_SOURCE]:0;if(cfg){for(unsigned i=0;i<16;++i)reply[ST_INFO_DEVICE_ID_OFFSET+i]=cfg[CFG_DEVICE_ID+i];for(unsigned i=0;i<16;++i)reply[ST_INFO_CARD_ID_OFFSET+i]=cfg[CFG_CARD_ID+i];for(unsigned i=0;i<16;++i)reply[ST_INFO_NAME_OFFSET+i]=cfg[CFG_NAME+i];}reply[ST_INFO_VERSION_OFFSET]=ST_PROTOCOL_MAJOR;reply[ST_INFO_VERSION_OFFSET+1]=ST_PROTOCOL_MINOR;}
+    if(request[0]==ST_CMD_INFO){reply[3]=cfg?(uint8_t)config_card_source(cfg):0;if(cfg){const uint8_t *name=config_name(cfg);for(unsigned i=0;i<16;++i)reply[ST_INFO_DEVICE_ID_OFFSET+i]=cfg[CFG_DEVICE_ID+i];for(unsigned i=0;i<16;++i)reply[ST_INFO_CARD_ID_OFFSET+i]=cfg[CFG_CARD_ID+i];for(unsigned i=0;i<16;++i)reply[ST_INFO_NAME_OFFSET+i]=name[i];if(config_has_backup(cfg))reply[ST_INFO_FLAGS_OFFSET]|=ST_INFO_HAS_BACKUP;}reply[ST_INFO_VERSION_OFFSET]=ST_PROTOCOL_MAJOR;reply[ST_INFO_VERSION_OFFSET+1]=ST_PROTOCOL_MINOR;}
     else if(request[0]==ST_CMD_ENROLL_BEGIN){
         if(cfg&&(PIO_PDSR&(BUTTON_GREEN|BUTTON_RED))!=0){reply[1]=ST_RESULT_ALREADY_ENROLLED;}
         else if(state==ST_STATE_READING_CARD||state==ST_STATE_PRESS_GREEN){reply[1]=ST_RESULT_BUSY;}
         else {for(unsigned i=0;i<32;++i)pending_secret[i]=request[ST_ENROLL_SECRET_OFFSET+i];for(unsigned i=0;i<16;++i)pending_name[i]=request[ST_ENROLL_NAME_OFFSET+i];allow_atr=request[ST_ENROLL_FLAGS_OFFSET]&ST_ENROLL_ALLOW_ATR;start_card_flow(1);}
-    } else if(request[0]==ST_CMD_AUTH_BEGIN){if(!cfg)reply[1]=ST_RESULT_NOT_ENROLLED;else {for(unsigned i=0;i<32;++i)nonce[i]=request[ST_AUTH_NONCE_OFFSET+i];start_card_flow(0);}}
+    } else if(request[0]==ST_CMD_ADD_CARD_BEGIN){if(!cfg)reply[1]=ST_RESULT_NOT_ENROLLED;else if((PIO_PDSR&(BUTTON_GREEN|BUTTON_RED))!=0)reply[1]=ST_RESULT_ALREADY_ENROLLED;else if(state==ST_STATE_READING_CARD||state==ST_STATE_PRESS_GREEN)reply[1]=ST_RESULT_BUSY;else{allow_atr=request[ST_ENROLL_FLAGS_OFFSET]&ST_ENROLL_ALLOW_ATR;start_card_flow(2);}}
+    else if(request[0]==ST_CMD_AUTH_BEGIN){if(!cfg)reply[1]=ST_RESULT_NOT_ENROLLED;else {for(unsigned i=0;i<32;++i)nonce[i]=request[ST_AUTH_NONCE_OFFSET+i];start_card_flow(0);}}
     else if(request[0]==ST_CMD_CANCEL){state=cfg?ST_STATE_IDLE:ST_STATE_UNENROLLED;pending_enrollment=0;card_off();wipe(nonce,32);wipe(wrap_key,32);render();}
     else if(request[0]==ST_CMD_STATUS){reply[1]=last_result;reply[2]=state;reply[3]=(uint8_t)current_card_source;if(state==ST_STATE_AUTH_OK){for(unsigned i=0;i<16;++i)reply[ST_AUTH_PROOF_OFFSET+i]=auth_proof[i];for(unsigned i=0;i<32;++i)reply[ST_AUTH_WRAP_KEY_OFFSET+i]=wrap_key[i];}}
     else reply[1]=ST_RESULT_BAD_COMMAND;
@@ -154,7 +177,8 @@ static void poll_card_flow(void)
     if(state==ST_STATE_INSERT_CARD&&card_present()){state=ST_STATE_READING_CARD;render();current_card_source=card_read_identity(current_card);
         if(!current_card_source){state=ST_STATE_ERROR;last_result=ST_RESULT_BAD_STATE;render();return;}
         if(pending_enrollment&&current_card_source==ST_CARD_ID_ATR&&!allow_atr){state=ST_STATE_ERROR;last_result=ST_RESULT_CARD_WEAK_ID;render();return;}
-        const uint8_t *cfg=flash_config();if(!pending_enrollment&&!bytes_equal(current_card,cfg+CFG_CARD_ID,16)){state=ST_STATE_ACCESS_DENIED;last_result=ST_RESULT_OK;render();return;}
+        const uint8_t *cfg=flash_config();if(pending_enrollment==2&&bytes_equal(current_card,cfg+CFG_CARD_ID,16)){state=ST_STATE_ERROR;last_result=ST_RESULT_DUPLICATE_CARD;render();return;}
+        if(!pending_enrollment&&!bytes_equal(current_card,cfg+CFG_CARD_ID,16)&&!(config_has_backup(cfg)&&bytes_equal(current_card,cfg+CFG_BACKUP_CARD_ID,16))){state=ST_STATE_ACCESS_DENIED;last_result=ST_RESULT_OK;render();return;}
         state=ST_STATE_PRESS_GREEN;render();}
     int green_up=(PIO_PDSR&BUTTON_GREEN)!=0,red_up=(PIO_PDSR&BUTTON_RED)!=0;
     if(!buttons_armed){
@@ -162,7 +186,7 @@ static void poll_card_flow(void)
         if(green_up&&red_up)buttons_armed=1;
         return;
     }
-    if(state==ST_STATE_PRESS_GREEN&&green_was_up&&!green_up){if(pending_enrollment){if(save_config()){state=ST_STATE_ENROLLED;last_result=ST_RESULT_OK;}else{state=ST_STATE_ERROR;last_result=ST_RESULT_FLASH;}wipe(pending_secret,32);wipe(pending_name,16);pending_enrollment=0;}
+    if(state==ST_STATE_PRESS_GREEN&&green_was_up&&!green_up){if(pending_enrollment){int ok=pending_enrollment==2?save_backup_config():save_config();if(ok){state=ST_STATE_ENROLLED;last_result=ST_RESULT_OK;}else{state=ST_STATE_ERROR;last_result=ST_RESULT_FLASH;}wipe(pending_secret,32);wipe(pending_name,16);pending_enrollment=0;}
         else {derive_auth_response();state=ST_STATE_AUTH_OK;}render();}
     if((state==ST_STATE_PRESS_GREEN||state==ST_STATE_INSERT_CARD)&&red_was_up&&!red_up){state=ST_STATE_CANCELED;pending_enrollment=0;last_result=ST_RESULT_OK;wipe(pending_secret,32);wipe(nonce,32);card_off();render();}
     green_was_up=(uint8_t)green_up;red_was_up=(uint8_t)red_up;
